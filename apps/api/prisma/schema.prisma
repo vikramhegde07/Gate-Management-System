@@ -1,0 +1,278 @@
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id            String   @id @default(uuid())
+
+  name          String
+  email         String  @unique
+  phone         String   @unique
+
+  passwordHash  String
+
+  isActive      Boolean  @default(true)
+  isVerified    Boolean  @default(false)
+
+  profileImage  String?
+
+  lastLoginAt   DateTime?
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  refreshTokens RefreshToken[]
+  fcmTokens     FCMToken[]
+  propertyAccess PropertyAccess[]
+  createdVisitorEntries  VisitorEntry[] @relation("VisitorCreatedBy")
+  approvedVisitorEntries VisitorEntry[] @relation("VisitorApprovedBy")
+  hostedVisitorEntries   VisitorEntry[] @relation("VisitorHost")
+  @@map("users")
+}
+
+model RefreshToken {
+  id            String   @id @default(uuid())
+
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  tokenHash     String
+
+  deviceName    String?
+  deviceType    String?
+
+  ipAddress     String?
+  userAgent     String?
+
+  expiresAt     DateTime
+
+  revokedAt     DateTime?
+
+  createdAt     DateTime @default(now())
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+model FCMToken {
+  id          String   @id @default(uuid())
+
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  token       String   @unique
+
+  platform    DevicePlatform
+
+  deviceName  String?
+
+  isActive    Boolean  @default(true)
+
+  lastUsedAt  DateTime?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId])
+  @@map("fcm_tokens")
+}
+
+enum DevicePlatform {
+  WEB
+  ANDROID
+  IOS
+}
+
+model PropertyAccess {
+  id            String   @id @default(uuid())
+
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  propertyId    String
+  property      Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  role          PropertyRole
+
+  designation   String?
+
+  isActive      Boolean  @default(true)
+
+  joinedAt      DateTime @default(now())
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([userId, propertyId])
+  @@index([propertyId])
+  @@index([userId])
+
+  @@map("property_access")
+}
+
+enum PropertyRole {
+  OWNER
+  COMMITTEE
+  RESIDENT
+  SECURITY
+  STAFF
+}
+
+model Property {
+  id            String   @id @default(uuid())
+
+  name          String
+  type          PropertyType
+
+  addressLine1  String
+  addressLine2  String?
+
+  city          String
+  state         String
+  country       String
+
+  postalCode    String?
+
+  latitude      Decimal? @db.Decimal(10, 8)
+  longitude     Decimal? @db.Decimal(11, 8)
+
+  isActive      Boolean  @default(true)
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  accessUsers   PropertyAccess[]
+  gates         Gate[]
+  visitorEntries VisitorEntry[]
+
+  @@index([city])
+  @@index([type])
+
+  @@map("properties")
+}
+
+enum PropertyType {
+  PG
+  APARTMENT
+  OFFICE
+  WAREHOUSE
+  FACTORY
+  SCHOOL
+  OTHER
+}
+
+model Gate {
+  id            String   @id @default(uuid())
+
+  propertyId    String
+  property      Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  name          String
+  code          String?
+
+  description   String?
+
+  isActive      Boolean  @default(true)
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  visitorEntries      VisitorEntry[]
+
+  @@index([propertyId])
+
+  @@unique([propertyId, name])
+
+  @@map("gates")
+}
+
+model VisitorEntry {
+  id              String   @id @default(uuid())
+
+  propertyId      String
+  property        Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  gateId          String
+  gate            Gate     @relation(fields: [gateId], references: [id])
+
+  visitorName     String
+  visitorPhone    String?
+
+  visitorPhotoUrl String?
+
+  purpose         String?
+
+  hostUserId      String?
+  hostUser        User? @relation("VisitorHost", fields: [hostUserId], references: [id])
+
+  entryType       VisitorEntryType @default(MANUAL)
+
+  status          VisitorEntryStatus @default(PENDING)
+
+  // Vehicle Details
+  vehicleNumber   String?
+  vehicleType     String?
+
+  checkInTime     DateTime?
+  checkOutTime    DateTime?
+
+  createdById     String?
+  createdBy       User? @relation("VisitorCreatedBy", fields: [createdById], references: [id])
+
+  approvedById    String?
+  approvedBy      User? @relation("VisitorApprovedBy", fields: [approvedById], references: [id])
+
+  remarks         String?
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([propertyId])
+  @@index([gateId])
+  @@index([status])
+  @@index([checkInTime])
+
+  @@map("visitor_entries")
+}
+
+enum VisitorEntryType {
+  MANUAL
+  PRE_APPROVED
+  QR
+  SELF_REGISTERED
+}
+
+enum VisitorEntryStatus {
+  PENDING
+  CHECKED_IN
+  CHECKED_OUT
+  REJECTED
+  CANCELLED
+}
+
+model AuditLog {
+  id          String   @id @default(uuid())
+
+  propertyId  String?
+  userId      String?
+
+  action      String
+
+  entityType  String
+  entityId    String
+
+  metadata    Json?
+
+  createdAt   DateTime @default(now())
+
+  @@index([propertyId])
+  @@index([userId])
+
+  @@map("audit_logs")
+}

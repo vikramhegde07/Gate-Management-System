@@ -48,29 +48,53 @@ export default function Login() {
     return (
         <div className="grid min-h-screen grid-cols-1 lg:grid-cols-12 bg-background select-none">
 
+
             {/* LEFT COLUMN: BRAND HERO (Hidden on Mobile/Tablets) */}
-            <div className="hidden lg:flex lg:col-span-5 xl:col-span-4 bg-primary text-primary-foreground flex-col justify-between p-10 relative overflow-hidden">
-                {/* Decorative Background Matrix Accent */}
+            <div className="hidden lg:flex lg:col-span-5 xl:col-span-4 bg-primary text-primary-foreground flex-col justify-between p-8 xl:p-10 relative overflow-hidden min-h-screen">
+
+                {/* Decorative Background Accent */}
                 <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-primary-foreground/10 via-transparent to-transparent opacity-40 pointer-events-none" />
 
-                <div className="flex items-center gap-2 relative z-10">
+                {/* Brand */}
+                <div className="flex items-center gap-2 relative z-10 shrink-0">
                     <ShieldCheck className="h-8 w-8 text-primary-foreground" />
-                    <span className="font-bold text-xl tracking-tight">GatePass Pro</span>
+                    <span className="font-bold text-xl tracking-tight">
+                        GatePass Pro
+                    </span>
                 </div>
 
-                <div className="space-y-4 relative z-10">
-                    <h2 className="text-3xl font-bold tracking-tight leading-tight">
-                        Digitalized Gate Entry For Safer Properties.
-                    </h2>
-                    <p className="text-primary-foreground/80 text-sm leading-relaxed">
-                        Replace obsolete manual ledger logs. Streamline visitor check-ins, oversee guard activity, and secure access across all your properties effortlessly.
-                    </p>
+                {/* Hero Content */}
+                <div className="relative z-10 flex flex-col gap-5 xl:gap-6 my-8">
+
+                    {/* Heading and Description */}
+                    <div className="space-y-4">
+                        <h2 className="text-3xl xl:text-4xl font-bold tracking-tight leading-tight">
+                            Digitalized Gate Entry For Safer Properties.
+                        </h2>
+
+                        <p className="text-primary-foreground/80 text-sm xl:text-base leading-relaxed max-w-md">
+                            Replace obsolete manual ledger logs. Streamline visitor
+                            check-ins, oversee guard activity, and secure access across
+                            all your properties effortlessly.
+                        </p>
+                    </div>
+
+                    {/* Product Illustration */}
+                    <div className="w-full flex items-center justify-center">
+                        <img
+                            src="/images/hero.png"
+                            alt="GatePass Pro digital visitor check-in kiosk and secure property entrance"
+                            className="w-full max-w-lg max-h-[38vh] xl:max-h-[42vh] object-contain"
+                        />
+                    </div>
                 </div>
 
-                <div className="text-xs text-primary-foreground/60 relative z-10">
+                {/* Footer */}
+                <div className="text-xs text-primary-foreground/60 relative z-10 shrink-0">
                     &copy; 2026 GatePass Networks. All rights reserved.
                 </div>
             </div>
+
 
             {/* RIGHT COLUMN: LOGIN DESK */}
             <div className="col-span-1 lg:col-span-7 xl:col-span-8 flex items-center justify-center p-6 md:p-12">

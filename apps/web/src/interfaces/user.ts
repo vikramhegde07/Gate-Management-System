@@ -7,6 +7,8 @@ export interface UserType {
     email: string | null;
     phone: string | null;
 
+    profileImage: string | null;
+
     isVerified: boolean;
     isActive: boolean;
 

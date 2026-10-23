@@ -11,6 +11,7 @@ import Visitorpage from './pages/Visitor/Visitorpage'
 import PublicVisitorPage from './pages/Public/PublicVisitorPage'
 import Properties from './pages/Properties'
 import PropertyGuard from './components/layouts/PropertyGuard'
+import Profile from './pages/Profile'
 
 function App() {
 
@@ -37,6 +38,8 @@ function App() {
               <Route path="/gates" element={<GatesPage />} />
               <Route path="/users" element={<UsersPage />} />
               <Route path="/visitors" element={<Visitorpage />} />
+
+              <Route path="/profile" element={<Profile />} />
 
             </Route>
 

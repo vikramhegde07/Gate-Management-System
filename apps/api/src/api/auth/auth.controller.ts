@@ -125,6 +125,7 @@ export const me = asyncHandler(async (req: Request, res: Response) => {
             phone: true,
             isVerified: true,
             createdAt: true,
+            profileImage: true
         },
     });
 

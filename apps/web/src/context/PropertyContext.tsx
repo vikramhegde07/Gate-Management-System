@@ -26,7 +26,7 @@ export const PropertyProvider = ({
 }: {
     children: ReactNode;
 }) => {
-    const { user } = useAuth();
+    const { user, loading: authLoading } = useAuth();
     const [memberships, setMemberships] = useState<UserPropertyMembership[]>([]);
     const [currentProperty, setCurrentProperty] = useState<Property | null>(null);
     const [currentRole, setCurrentRole] = useState<PropertyRole | null>(null);
@@ -63,17 +63,19 @@ export const PropertyProvider = ({
     useEffect(() => {
         console.log("PropertyContext: User dependency changed. Current value:", user);
 
-        if (user && Object.keys(user).length > 0) {
-            console.log("PropertyContext: Authenticated state detected -> fetching memberships.");
-            refreshMemberships();
-        } else {
-            console.log("PropertyContext: Unauthenticated state triggered -> clearing workspace contexts.");
-            setMemberships([]);
-            setCurrentProperty(null);
-            setCurrentRole(null);
-            setLoading(false);
+        if (!authLoading) {
+            if (user && Object.keys(user).length > 0) {
+                console.log("PropertyContext: Authenticated state detected -> fetching memberships.");
+                refreshMemberships();
+            } else {
+                console.log("PropertyContext: Unauthenticated state triggered -> clearing workspace contexts.");
+                setMemberships([]);
+                setCurrentProperty(null);
+                setCurrentRole(null);
+                setLoading(false);
 
-            localStorage.removeItem("selected_property_id");
+                localStorage.removeItem("selected_property_id");
+            }
         }
     }, [user]);
 

@@ -25,7 +25,7 @@ export function VisitorFilters({ isStaffOrResident, gates, users, filters, setFi
             {/* Sort Control */}
             <div className="space-y-1.5">
                 <label className="text-[11px] font-bold tracking-wider text-muted-foreground uppercase flex items-center gap-1">
-                    <ArrowUpDown className="h-3 w-3" /> Alphabetical Ordering
+                    <ArrowUpDown className="h-3 w-3" /> List Order
                 </label>
                 <Select value={filters.sortOrder} onValueChange={(val) => setFilters((p: any) => ({ ...p, sortOrder: val }))}>
                     <SelectTrigger className="bg-background h-9"><SelectValue /></SelectTrigger>
@@ -43,7 +43,7 @@ export function VisitorFilters({ isStaffOrResident, gates, users, filters, setFi
                 <>
                     <div className="space-y-1.5">
                         <label className="text-[11px] font-bold tracking-wider text-muted-foreground uppercase flex items-center gap-1">
-                            <SlidersHorizontal className="h-3 w-3" /> Gate Isolation
+                            <SlidersHorizontal className="h-3 w-3" /> Gate Filter
                         </label>
                         <Select value={filters.gateId} onValueChange={(val) => setFilters((p: any) => ({ ...p, gateId: val }))}>
                             <SelectTrigger className="bg-background h-9"><SelectValue /></SelectTrigger>
@@ -56,13 +56,19 @@ export function VisitorFilters({ isStaffOrResident, gates, users, filters, setFi
 
                     <div className="space-y-1.5">
                         <label className="text-[11px] font-bold tracking-wider text-muted-foreground uppercase flex items-center gap-1">
-                            <SlidersHorizontal className="h-3 w-3" /> Destination Host
+                            <SlidersHorizontal className="h-3 w-3" /> Destination
                         </label>
                         <Select value={filters.hostUserId} onValueChange={(val) => setFilters((p: any) => ({ ...p, hostUserId: val }))}>
                             <SelectTrigger className="bg-background h-9 truncate"><SelectValue /></SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="ALL">All Terminal Hosts</SelectItem>
-                                {users.map(u => <SelectItem key={u.user.id} value={u.user.id}>{u.user.name}</SelectItem>)}
+                                <SelectItem value="ALL">All Hosts</SelectItem>
+                                {users
+                                    .filter(u => !["SECURITY", "STAFF"].includes(u.role))
+                                    .map(u => (
+                                        <SelectItem key={u.user.id} value={u.user.id}>
+                                            {u.user.name}
+                                        </SelectItem>
+                                    ))}
                             </SelectContent>
                         </Select>
                     </div>

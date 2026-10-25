@@ -75,7 +75,7 @@ export function VisitorFormModal({ role, gates, users, onSubmit }: VisitorFormMo
                 </Button>
             </DialogTrigger>
 
-            <DialogContent className="max-w-lg border-border max-h-[90vh] overflow-y-auto">
+            <DialogContent className="!max-w-lg border-border max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle className="text-xl font-bold tracking-tight">
                         {isResidentFlow ? "Pre-Register Expected Guest" : "Check-In Incoming Visitor Entry"}
@@ -89,7 +89,7 @@ export function VisitorFormModal({ role, gates, users, onSubmit }: VisitorFormMo
                             <Input id="vis-name" required value={formData.visitorName} onChange={(e) => setFormData(p => ({ ...p, visitorName: e.target.value }))} placeholder="John Doe" />
                         </div>
                         <div className="space-y-1.5 col-span-2 sm:col-span-1">
-                            <Label htmlFor="vis-phone">Visitor Phone Line</Label>
+                            <Label htmlFor="vis-phone">Visitor Phone</Label>
                             <Input id="vis-phone" type="tel" required value={formData.visitorPhone} onChange={(e) => setFormData(p => ({ ...p, visitorPhone: e.target.value }))} placeholder="9876543210" />
                         </div>
                     </div>
@@ -103,7 +103,7 @@ export function VisitorFormModal({ role, gates, users, onSubmit }: VisitorFormMo
                         <div className="space-y-1.5 col-span-2 sm:col-span-1">
                             <Label>Check-In Point Gate</Label>
                             <Select required value={formData.gateId} onValueChange={(val) => setFormData(p => ({ ...p, gateId: val }))}>
-                                <SelectTrigger><SelectValue placeholder="Select Entry Terminal" /></SelectTrigger>
+                                <SelectTrigger><SelectValue placeholder="Select Entry Gate" /></SelectTrigger>
                                 <SelectContent>
                                     {gates.map(g => <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>)}
                                 </SelectContent>
@@ -112,11 +112,17 @@ export function VisitorFormModal({ role, gates, users, onSubmit }: VisitorFormMo
 
                         {!isResidentFlow && (
                             <div className="space-y-1.5 col-span-2 sm:col-span-1">
-                                <Label>Target Host Destination</Label>
+                                <Label>Destination</Label>
                                 <Select required value={formData.hostUserId} onValueChange={(val) => setFormData(p => ({ ...p, hostUserId: val }))}>
                                     <SelectTrigger><SelectValue placeholder="Select Resident Host" /></SelectTrigger>
                                     <SelectContent>
-                                        {users.map(u => <SelectItem key={u.user.id} value={u.user.id}>{u.user.name}</SelectItem>)}
+                                        {users
+                                            .filter(u => !["SECURITY", "STAFF"].includes(u.role))
+                                            .map(u => (
+                                                <SelectItem key={u.user.id} value={u.user.id}>
+                                                    {u.user.name}
+                                                </SelectItem>
+                                            ))}
                                     </SelectContent>
                                 </Select>
                             </div>
@@ -124,10 +130,6 @@ export function VisitorFormModal({ role, gates, users, onSubmit }: VisitorFormMo
                     </div>
 
                     <div className="grid grid-cols-2 gap-4 border-t border-border/60 pt-4">
-                        <div className="space-y-1.5 col-span-2 sm:col-span-1">
-                            <Label htmlFor="vis-vnum">Vehicle License Plate</Label>
-                            <Input id="vis-vnum" value={formData.vehicleNumber} onChange={(e) => setFormData(p => ({ ...p, vehicleNumber: e.target.value }))} placeholder="KA-01-AB-1234" />
-                        </div>
                         <div className="space-y-1.5 col-span-2 sm:col-span-1">
                             <Label>Vehicle Type classification</Label>
                             <Select value={formData.vehicleType} onValueChange={(val) => setFormData(p => ({ ...p, vehicleType: val }))}>
@@ -142,10 +144,16 @@ export function VisitorFormModal({ role, gates, users, onSubmit }: VisitorFormMo
                                 </SelectContent>
                             </Select>
                         </div>
+                        {formData.vehicleType !== "NONE" && (
+                            <div className="space-y-1.5 col-span-2 sm:col-span-1">
+                                <Label htmlFor="vis-vnum">Vehicle License Plate</Label>
+                                <Input id="vis-vnum" value={formData.vehicleNumber} onChange={(e) => setFormData(p => ({ ...p, vehicleNumber: e.target.value }))} placeholder="KA-01-AB-1234" />
+                            </div>
+                        )}
                     </div>
 
                     <div className="space-y-1.5">
-                        <Label htmlFor="vis-remarks">Internal Operator Remarks / Notes</Label>
+                        <Label htmlFor="vis-remarks">Remarks / Notes</Label>
                         <Input id="vis-remarks" value={formData.remarks} onChange={(e) => setFormData(p => ({ ...p, remarks: e.target.value }))} placeholder="Optional clearance parameters..." />
                     </div>
 

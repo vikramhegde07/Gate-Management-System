@@ -39,12 +39,6 @@ export default function Dashboard() {
     const [isOnDuty, setIsOnDuty] = useState(false);
     const [dutyStartTime, setDutyStartTime] = useState<string | null>(null);
 
-    // Mock guards on duty for Owners/Committee view
-    const [guardsOnDuty] = useState([
-        { id: "1", name: "Officer Rajesh Kumar", gate: "Main North Entrance", shift: "Day Shift (06:00 - 14:00)" },
-        { id: "2", name: "Officer Suresh Rao", gate: "Service Gate B", shift: "Day Shift (06:00 - 14:00)" }
-    ]);
-
     const isSecurity = currentRole === "SECURITY";
     const isOwnerOrCommittee = currentRole === "OWNER" || currentRole === "COMMITTEE";
     const isResidentOrStaff = currentRole === "RESIDENT" || currentRole === "STAFF";

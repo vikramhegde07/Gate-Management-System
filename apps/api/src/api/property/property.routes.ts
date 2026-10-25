@@ -3,6 +3,8 @@ import { Router } from "express";
 import gateRoutes from '../gate/gate.routes'
 import userRoutes from '../user/user.routes'
 import visitorRoutes from '../visitor/visitor.routes'
+import dutyRoutes from '../duty/duty.routes'
+
 
 
 import {
@@ -20,6 +22,7 @@ const router = Router();
 router.use('/:propertyId/gates', gateRoutes);
 router.use('/:propertyId/users', userRoutes);
 router.use('/:propertyId/visitors', visitorRoutes);
+router.use("/:propertyId/duty", dutyRoutes);
 
 router.post(
   "/",

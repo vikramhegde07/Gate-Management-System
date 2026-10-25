@@ -9,30 +9,33 @@ datasource db {
 }
 
 model User {
-  id            String   @id @default(uuid())
+  id                     String   @id @default(uuid())
 
-  name          String
-  email         String  @unique
-  phone         String   @unique
+  name                   String
+  email                  String   @unique
+  phone                  String   @unique
 
-  passwordHash  String
+  passwordHash           String
 
-  isActive      Boolean  @default(true)
-  isVerified    Boolean  @default(false)
+  isActive               Boolean  @default(true)
+  isVerified             Boolean  @default(false)
 
-  profileImage  String?
+  profileImage           String?
 
-  lastLoginAt   DateTime?
+  lastLoginAt            DateTime?
 
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
 
-  refreshTokens RefreshToken[]
-  fcmTokens     FCMToken[]
-  propertyAccess PropertyAccess[]
+  refreshTokens          RefreshToken[]
+  fcmTokens              FCMToken[]
+  propertyAccess         PropertyAccess[]
   createdVisitorEntries  VisitorEntry[] @relation("VisitorCreatedBy")
   approvedVisitorEntries VisitorEntry[] @relation("VisitorApprovedBy")
   hostedVisitorEntries   VisitorEntry[] @relation("VisitorHost")
+  guardDuties            GateDuty[] @relation("GateDutyGuard")
+  startedGateDuties      GateDuty[] @relation("GateDutyStartedBy")
+  endedGateDuties        GateDuty[] @relation("GateDutyEndedBy")
   @@map("users")
 }
 
@@ -125,31 +128,32 @@ enum PropertyRole {
 }
 
 model Property {
-  id            String   @id @default(uuid())
+  id                String   @id @default(uuid())
 
-  name          String
-  type          PropertyType
+  name              String
+  type              PropertyType
 
-  addressLine1  String
-  addressLine2  String?
+  addressLine1      String
+  addressLine2      String?
 
-  city          String
-  state         String
-  country       String
+  city              String
+  state             String
+  country           String
 
-  postalCode    String?
+  postalCode        String?
 
-  latitude      Decimal? @db.Decimal(10, 8)
-  longitude     Decimal? @db.Decimal(11, 8)
+  latitude          Decimal? @db.Decimal(10, 8)
+  longitude         Decimal? @db.Decimal(11, 8)
 
-  isActive      Boolean  @default(true)
+  isActive          Boolean  @default(true)
 
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
-  accessUsers   PropertyAccess[]
-  gates         Gate[]
-  visitorEntries VisitorEntry[]
+  accessUsers       PropertyAccess[]
+  gates             Gate[]
+  visitorEntries    VisitorEntry[]
+  dutyAssignments   GateDuty[]
 
   @@index([city])
   @@index([type])
@@ -184,6 +188,7 @@ model Gate {
   updatedAt     DateTime @updatedAt
 
   visitorEntries      VisitorEntry[]
+  dutyAssignments     GateDuty[]
 
   @@index([propertyId])
 
@@ -275,4 +280,44 @@ model AuditLog {
   @@index([userId])
 
   @@map("audit_logs")
+}
+
+
+model GateDuty {
+  id String @id @default(uuid())
+
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  gateId String
+  gate   Gate @relation(fields: [gateId], references: [id], onDelete: Restrict)
+
+  guardUserId String
+  guardUser   User @relation("GateDutyGuard", fields: [guardUserId], references: [id], onDelete: Restrict)
+
+  startedAt DateTime @default(now())
+  endedAt   DateTime?
+
+  startedByUserId String
+  startedBy User @relation("GateDutyStartedBy", fields: [startedByUserId], references: [id], onDelete: Restrict)
+
+  endedByUserId String?
+  endedBy User? @relation("GateDutyEndedBy", fields: [endedByUserId], references: [id], onDelete: Restrict)
+  
+  endType   GateDutyEndType?
+  endReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([propertyId, gateId, endedAt])
+  @@index([guardUserId, endedAt])
+  @@index([propertyId, endedAt])
+
+  @@map("gate_duties")
+}
+
+enum GateDutyEndType {
+  GUARD_CHECKOUT
+  ADMIN_CORRECTION
 }

@@ -23,6 +23,7 @@ import { useProperty } from "@/context/PropertyContext";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import toast from "react-hot-toast";
 
 export default function Dashboard() {
     const { currentProperty, currentRole } = useProperty();
@@ -35,48 +36,114 @@ export default function Dashboard() {
     const [recentVisitors, setRecentVisitors] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
 
-    // UI-only state for Security Guard Duty Shift toggle
-    const [isOnDuty, setIsOnDuty] = useState(false);
-    const [dutyStartTime, setDutyStartTime] = useState<string | null>(null);
+    const [gates, setGates] = useState<any[]>([]);
+    const [currentDuties, setCurrentDuties] = useState<any[]>([]);
+    const [activeDuty, setActiveDuty] = useState<any | null>(null);
+    const [selectedGateId, setSelectedGateId] = useState("");
+    const [dutyActionLoading, setDutyActionLoading] = useState(false);
+    const [dutyLoading, setDutyLoading] = useState(false);
 
     const isSecurity = currentRole === "SECURITY";
     const isOwnerOrCommittee = currentRole === "OWNER" || currentRole === "COMMITTEE";
     const isResidentOrStaff = currentRole === "RESIDENT" || currentRole === "STAFF";
 
     useEffect(() => {
-        if (!currentProperty) return;
+        if (!currentProperty) {
+            setLoading(false);
+            setRecentVisitors([]);
+            setGates([]);
+            setCurrentDuties([]);
+            setActiveDuty(null);
+            return;
+        }
+
+        let cancelled = false;
 
         const fetchDashboardData = async () => {
             try {
                 setLoading(true);
+
                 const [visitorsRes, gatesRes] = await Promise.all([
                     apiPrivate.get(`/properties/${currentProperty.id}/visitors`),
                     apiPrivate.get(`/properties/${currentProperty.id}/gates`)
                 ]);
 
-                const visitors = visitorsRes.data.data || [];
-                const gates = gatesRes.data.data || [];
+                if (cancelled) return;
 
-                const activeInside = visitors.filter((v: any) => v.status === "CHECKED_IN" || v.status === "APPROVED").length;
+                const visitors = visitorsRes.data.data || [];
+                const propertyGates = gatesRes.data.data || [];
+
+                setGates(propertyGates);
+                setSelectedGateId((current) => {
+                    if (current && propertyGates.some((gate: any) => gate.id === current)) {
+                        return current;
+                    }
+                    return propertyGates[0]?.id || "";
+                });
+
+                const activeInside = visitors.filter(
+                    (v: any) => v.status === "CHECKED_IN" || v.status === "APPROVED"
+                ).length;
                 const pending = visitors.filter((v: any) => v.status === "PENDING").length;
 
                 setStats({
                     propertyTotal: visitors.length,
                     activeInside,
                     pendingApprovals: pending,
-                    activeGates: gates.length
+                    activeGates: propertyGates.length
                 });
 
                 setRecentVisitors(visitors.slice(0, 5));
+
+                if (isSecurity || isOwnerOrCommittee) {
+                    setDutyLoading(true);
+                    try {
+                        const dutyRes = await apiPrivate.get(
+                            `/properties/${currentProperty.id}/duty/current`
+                        );
+
+                        if (cancelled) return;
+
+                        const dutyData = dutyRes.data.data;
+
+                        // API contract: SECURITY receives their own active duty (object or null);
+                        // OWNER/COMMITTEE receive the active duty list for the property.
+                        if (isSecurity) {
+                            setActiveDuty(Array.isArray(dutyData) ? dutyData[0] ?? null : dutyData ?? null);
+                            setCurrentDuties(Array.isArray(dutyData) ? dutyData : dutyData ? [dutyData] : []);
+                        } else {
+                            const duties = Array.isArray(dutyData) ? dutyData : dutyData ? [dutyData] : [];
+                            setCurrentDuties(duties);
+                        }
+                    } catch (dutyError) {
+                        console.error("Failed to load current duty assignments:", dutyError);
+                        if (!cancelled) {
+                            setActiveDuty(null);
+                            setCurrentDuties([]);
+                        }
+                    } finally {
+                        if (!cancelled) setDutyLoading(false);
+                    }
+                } else {
+                    setCurrentDuties([]);
+                    setActiveDuty(null);
+                }
             } catch (err) {
                 console.error("Failed to load dashboard metrics:", err);
+                if (!cancelled) {
+                    toast.error("Failed to load dashboard data.");
+                }
             } finally {
-                setLoading(false);
+                if (!cancelled) setLoading(false);
             }
         };
 
-        fetchDashboardData();
-    }, [currentProperty]);
+        void fetchDashboardData();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [currentProperty?.id, isSecurity, isOwnerOrCommittee]);
 
     // Role-tailored header metadata configurations
     const getRoleHeaderContent = () => {
@@ -100,13 +167,88 @@ export default function Dashboard() {
 
     const headerContent = getRoleHeaderContent();
 
-    const handleDutyToggle = () => {
-        if (!isOnDuty) {
-            setIsOnDuty(true);
-            setDutyStartTime(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
-        } else {
-            setIsOnDuty(false);
-            setDutyStartTime(null);
+    const handleStartDuty = async () => {
+        if (!currentProperty) return;
+
+        if (!selectedGateId) {
+            toast.error("Select an active gate before starting duty.");
+            return;
+        }
+
+        try {
+            setDutyActionLoading(true);
+            const response = await apiPrivate.post(
+                `/properties/${currentProperty.id}/duty/start`,
+                { gateId: selectedGateId }
+            );
+
+            setActiveDuty(response.data.data);
+            setCurrentDuties((current) => [
+                ...current.filter((duty) => duty.id !== response.data.data.id),
+                response.data.data
+            ]);
+            toast.success("Duty started successfully.");
+        } catch (error: any) {
+            const message =
+                error?.response?.data?.message || "Unable to start duty. Please try again.";
+            toast.error(message);
+
+            // Refresh the server state in case another request already started duty.
+            try {
+                const dutyRes = await apiPrivate.get(
+                    `/properties/${currentProperty.id}/duty/current`
+                );
+                const dutyData = dutyRes.data.data;
+                if (Array.isArray(dutyData)) {
+                    setCurrentDuties(dutyData);
+                    setActiveDuty(dutyData[0] ?? null);
+                } else {
+                    setActiveDuty(dutyData ?? null);
+                    setCurrentDuties(dutyData ? [dutyData] : []);
+                }
+            } catch {
+                // Keep the original error visible; the next dashboard refresh can retry.
+            }
+        } finally {
+            setDutyActionLoading(false);
+        }
+    };
+
+    const handleEndDuty = async () => {
+        if (!currentProperty || !activeDuty) return;
+
+        try {
+            setDutyActionLoading(true);
+            await apiPrivate.post(`/properties/${currentProperty.id}/duty/end`);
+
+            setActiveDuty(null);
+            setCurrentDuties((current) =>
+                current.filter((duty) => duty.id !== activeDuty.id)
+            );
+            toast.success("Duty ended successfully.");
+        } catch (error: any) {
+            const message =
+                error?.response?.data?.message || "Unable to end duty. Please try again.";
+            toast.error(message);
+
+            // Re-read state in case the server completed the checkout before the request failed.
+            try {
+                const dutyRes = await apiPrivate.get(
+                    `/properties/${currentProperty.id}/duty/current`
+                );
+                const dutyData = dutyRes.data.data;
+                if (Array.isArray(dutyData)) {
+                    setCurrentDuties(dutyData);
+                    setActiveDuty(dutyData[0] ?? null);
+                } else {
+                    setActiveDuty(dutyData ?? null);
+                    setCurrentDuties(dutyData ? [dutyData] : []);
+                }
+            } catch {
+                // Keep the original error visible.
+            }
+        } finally {
+            setDutyActionLoading(false);
         }
     };
 
@@ -365,16 +507,31 @@ export default function Dashboard() {
                             <CardDescription>Active security personnel deployed across gates.</CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-3">
-                            {guards.map((guard) => (
-                                <div key={guard.id} className="p-3 rounded-lg border border-border/60 bg-muted/20 space-y-1">
-                                    <div className="flex items-center justify-between">
-                                        <span className="font-semibold text-sm text-foreground">{guard.name}</span>
-                                        <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                            {dutyLoading ? (
+                                <p className="text-xs text-muted-foreground py-4 text-center">Loading current assignments...</p>
+                            ) : currentDuties.length === 0 ? (
+                                <p className="text-xs text-muted-foreground py-4 text-center">No guards are currently recorded as on duty.</p>
+                            ) : (
+                                currentDuties.map((duty) => (
+                                    <div key={duty.id} className="p-3 rounded-lg border border-border/60 bg-muted/20 space-y-1">
+                                        <div className="flex items-center justify-between gap-2">
+                                            <span className="font-semibold text-sm text-foreground">
+                                                {duty.guardUser?.name || "Security guard"}
+                                            </span>
+                                            <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                                        </div>
+                                        <p className="text-xs text-muted-foreground">
+                                            Gate: <span className="font-medium text-foreground">{duty.gate?.name || "Unknown gate"}</span>
+                                        </p>
+                                        <p className="text-[11px] text-muted-foreground/80">
+                                            Started {duty.startedAt ? new Date(duty.startedAt).toLocaleString([], {
+                                                dateStyle: "medium",
+                                                timeStyle: "short"
+                                            }) : "time unavailable"}
+                                        </p>
                                     </div>
-                                    <p className="text-xs text-muted-foreground">Gate: <span className="font-medium text-foreground">{guard.gate}</span></p>
-                                    <p className="text-[11px] text-muted-foreground/80">{guard.shift}</p>
-                                </div>
-                            ))}
+                                ))
+                            )}
                             <div className="pt-2">
                                 <Button variant="outline" size="sm" className="w-full text-xs" asChild>
                                     <Link to="/users">Manage Guard Roster</Link>
@@ -392,13 +549,15 @@ export default function Dashboard() {
                                 <ShieldAlert className="h-5 w-5 text-primary" />
                                 <span>Guard Duty Shift</span>
                             </CardTitle>
-                            <CardDescription>Log your active duty attendance status.</CardDescription>
+                            <CardDescription>
+                                Record your active duty assignment for this property.
+                            </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-4">
-                            <div className={`p-4 rounded-xl border text-center space-y-2 ${isOnDuty ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400" : "bg-muted/40 border-border text-muted-foreground"}`}>
+                            <div className={`p-4 rounded-xl border text-center space-y-2 ${activeDuty ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400" : "bg-muted/40 border-border text-muted-foreground"}`}>
                                 <div className="text-xs uppercase tracking-wider font-bold">Current Status</div>
                                 <div className="text-xl font-bold flex items-center justify-center gap-2">
-                                    {isOnDuty ? (
+                                    {activeDuty ? (
                                         <>
                                             <CheckCircle2 className="h-5 w-5" /> ON DUTY
                                         </>
@@ -408,17 +567,57 @@ export default function Dashboard() {
                                         </>
                                     )}
                                 </div>
-                                {dutyStartTime && (
-                                    <p className="text-xs opacity-80">Shift started at {dutyStartTime}</p>
+                                {activeDuty?.startedAt && (
+                                    <p className="text-xs opacity-80">
+                                        Duty started at {new Date(activeDuty.startedAt).toLocaleTimeString([], {
+                                            hour: "2-digit",
+                                            minute: "2-digit"
+                                        })}
+                                    </p>
+                                )}
+                                {activeDuty?.gate?.name && (
+                                    <p className="text-xs opacity-80">Assigned gate: {activeDuty.gate.name}</p>
                                 )}
                             </div>
 
+                            {!activeDuty && (
+                                <div className="space-y-2">
+                                    <label htmlFor="duty-gate" className="text-sm font-medium text-foreground">
+                                        Select entrance
+                                    </label>
+                                    <select
+                                        id="duty-gate"
+                                        value={selectedGateId}
+                                        onChange={(event) => setSelectedGateId(event.target.value)}
+                                        disabled={dutyActionLoading || dutyLoading || gates.length === 0}
+                                        className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                                    >
+                                        {gates.length === 0 ? (
+                                            <option value="">No active gates available</option>
+                                        ) : (
+                                            gates.map((gate) => (
+                                                <option key={gate.id} value={gate.id}>
+                                                    {gate.name}{gate.code ? ` (${gate.code})` : ""}
+                                                </option>
+                                            ))
+                                        )}
+                                    </select>
+                                </div>
+                            )}
+
                             <Button
-                                onClick={handleDutyToggle}
-                                variant={isOnDuty ? "destructive" : "default"}
+                                onClick={activeDuty ? handleEndDuty : handleStartDuty}
+                                variant={activeDuty ? "destructive" : "default"}
                                 className="w-full font-medium gap-2"
+                                disabled={
+                                    dutyActionLoading ||
+                                    dutyLoading ||
+                                    (!activeDuty && (!selectedGateId || gates.length === 0))
+                                }
                             >
-                                {isOnDuty ? (
+                                {dutyActionLoading ? (
+                                    <>Please wait...</>
+                                ) : activeDuty ? (
                                     <>
                                         <LogOut className="h-4 w-4" /> Check-Out of Duty Shift
                                     </>
@@ -429,7 +628,7 @@ export default function Dashboard() {
                                 )}
                             </Button>
                             <p className="text-[11px] text-muted-foreground text-center">
-                                Duty timing is recorded for supervisor audit logging.
+                                Start and end times are recorded by the server. Closing the app does not end your duty.
                             </p>
                         </CardContent>
                     </Card>
@@ -463,9 +662,3 @@ export default function Dashboard() {
         </div>
     );
 }
-
-// Inline helper mock constant for guard roster list UI
-const guards = [
-    { id: "1", name: "Officer Rajesh Kumar", gate: "Main North Entrance", shift: "Day Shift (06:00 - 14:00)" },
-    { id: "2", name: "Officer Suresh Rao", gate: "Service Gate B", shift: "Day Shift (06:00 - 14:00)" }
-];

@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 
 import prisma from "../../lib/prisma";
 import { asyncHandler } from "../../utils/asyncHandler";
+import { getIO } from "../../socket";
 
 export const getPublicProperty =
     asyncHandler(async (req: Request, res: Response) => {
@@ -88,7 +89,6 @@ export const createPublicVisitorEntry =
     asyncHandler(async (req: Request, res: Response) => {
 
         const {
-
             visitorName,
             visitorPhone,
 
@@ -143,6 +143,11 @@ export const createPublicVisitorEntry =
                     status: "PENDING",
                 },
             });
+
+        getIO()
+            .to(`property:${propertyId}:security`)
+            .emit("visitor:created");
+
 
         return res.status(201).json({
             success: true,

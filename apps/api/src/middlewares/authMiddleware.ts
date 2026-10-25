@@ -2,6 +2,7 @@ import type { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 
 import { env } from "../config/env";
+import { verifyAccessToken } from "../utils/verifyAccessToken";
 
 export interface JWTPayload {
     id: string;
@@ -27,19 +28,7 @@ export const verifyJWT = (
             });
         }
 
-        const decoded = jwt.verify(
-            token,
-            env.JWT_ACCESS_SECRET
-        ) as JWTPayload;
-
-        if (decoded.type !== "access") {
-            return res.status(401).json({
-                success: false,
-                message: "Invalid token type",
-            });
-        }
-
-        req.user = decoded;
+        req.user = verifyAccessToken(token);
 
         next();
     } catch (error) {

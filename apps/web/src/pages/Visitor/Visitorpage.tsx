@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Users, ShieldCheck, CheckCircle2, LogOut, ClipboardList, Info } from "lucide-react";
 
 import apiPrivate from "@/lib/api";
@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import type { Gate, HostUser, Visitor } from "@/interfaces/visitor";
 import { VisitorFormModal } from "@/components/visitor/VisitorFormModal";
 import { VisitorFilters } from "@/components/visitor/VisitorFilters";
+import { socket } from "@/lib/socket";
 
 export default function VisitorPage() {
     const { currentProperty, currentRole } = useProperty();
@@ -28,10 +29,11 @@ export default function VisitorPage() {
     const isStaffOrResident = currentRole === "RESIDENT" || currentRole === "STAFF";
     const isSecurityForce = currentRole === "SECURITY";
 
-    const fetchWorkspaceLogs = async () => {
+    const fetchWorkspaceLogs = async (showLoading = true) => {
         if (!currentProperty) return;
+
         try {
-            setLoading(true);
+            if (showLoading) setLoading(true);
 
             // Build scalable URL search query keys for backend attachment
             const queryParams = new URLSearchParams();
@@ -40,7 +42,10 @@ export default function VisitorPage() {
             if (filters.gateId !== "ALL") queryParams.append("gateId", filters.gateId);
             if (filters.hostUserId !== "ALL") queryParams.append("hostUserId", filters.hostUserId);
 
-            const res = await apiPrivate.get(`/properties/${currentProperty.id}/visitors?${queryParams.toString()}`);
+            const res = await apiPrivate.get(
+                `/properties/${currentProperty.id}/visitors?${queryParams.toString()}`
+            );
+
             setVisitors(res.data.data || []);
         } catch (err) {
             console.error("Failed synchronizing log infrastructure:", err);
@@ -48,6 +53,64 @@ export default function VisitorPage() {
             setLoading(false);
         }
     };
+
+    const fetchWorkspaceLogsRef = useRef(fetchWorkspaceLogs);
+
+    // Keep the latest function so socket events use current filters.
+    fetchWorkspaceLogsRef.current = fetchWorkspaceLogs;
+
+    const canReceiveSecurityEvents =
+        currentRole === "OWNER" ||
+        currentRole === "COMMITTEE" ||
+        currentRole === "SECURITY";
+
+    useEffect(() => {
+        const propertyId = currentProperty?.id;
+
+        if (!propertyId || !canReceiveSecurityEvents) return;
+
+        const joinSecurityRoom = () => {
+            socket.emit(
+                "property:join-security-room",
+                propertyId,
+                (result: { success: boolean; message: string }) => {
+                    if (!result.success) {
+                        console.error("Security room join failed:", result.message);
+                        return;
+                    }
+
+                    console.log("Joined security room:", propertyId);
+                }
+            );
+        };
+
+        const handleVisitorCreated = () => {
+            // Refresh using current filters without showing the full-page loader.
+            void fetchWorkspaceLogsRef.current(false);
+        };
+
+        const handleConnectError = (error: Error) => {
+            console.error("Socket connection error:", error.message);
+        };
+
+        socket.on("connect", joinSecurityRoom);
+        socket.on("visitor:created", handleVisitorCreated);
+        socket.on("connect_error", handleConnectError);
+
+        socket.connect();
+
+        // Handle the case where this shared socket is already connected.
+        if (socket.connected) {
+            joinSecurityRoom();
+        }
+
+        return () => {
+            socket.off("connect", joinSecurityRoom);
+            socket.off("visitor:created", handleVisitorCreated);
+            socket.off("connect_error", handleConnectError);
+            socket.disconnect();
+        };
+    }, [currentProperty?.id, canReceiveSecurityEvents]);
 
     useEffect(() => {
         if (!currentProperty) return;

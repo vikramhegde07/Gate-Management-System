@@ -1,7 +1,7 @@
 import app from './app';
 import http from "http";
 import { env } from './config/env';
-// import { getIO, initSocket } from "./socket/index";
+import { initSocket } from "./socket/index";
 
 const PORT = env.PORT;
 
@@ -19,7 +19,7 @@ INIT SOCKET
 ========================================
 */
 
-// initSocket(server);
+initSocket(server);
 
 /*
 ========================================

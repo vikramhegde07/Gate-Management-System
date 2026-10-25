@@ -7,8 +7,7 @@ import prisma from "../lib/prisma";
 
 const allowedOrigins = [
     "http://localhost:5173",
-    "https://gate.nodenomad.in",
-    "http://192.168.29.184:5173",
+    "https://gate-management-system-beryl.vercel.app"
 ];
 
 const allowedSecurityRoles = ["OWNER", "COMMITTEE", "SECURITY"] as const;

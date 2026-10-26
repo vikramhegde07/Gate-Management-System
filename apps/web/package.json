@@ -16,6 +16,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cn": "^0.5.0",
+    "firebase": "^13.1.0",
     "framer-motion": "^12.40.0",
     "lucide-react": "^1.18.0",
     "radix-ui": "^1.5.0",
@@ -43,5 +44,9 @@
     "typescript": "~6.0.2",
     "typescript-eslint": "^8.59.2",
     "vite": "^8.0.12"
+  },
+  "allowScripts": {
+    "@firebase/util@1.15.3": true,
+    "protobufjs@7.6.6": true
   }
 }

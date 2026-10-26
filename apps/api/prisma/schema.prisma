@@ -36,6 +36,7 @@ model User {
   guardDuties            GateDuty[] @relation("GateDutyGuard")
   startedGateDuties      GateDuty[] @relation("GateDutyStartedBy")
   endedGateDuties        GateDuty[] @relation("GateDutyEndedBy")
+  notifications          NotificationRecipient[]
   @@map("users")
 }
 
@@ -282,7 +283,6 @@ model AuditLog {
   @@map("audit_logs")
 }
 
-
 model GateDuty {
   id String @id @default(uuid())
 
@@ -320,4 +320,39 @@ model GateDuty {
 enum GateDutyEndType {
   GUARD_CHECKOUT
   ADMIN_CORRECTION
+}
+
+model Notification {
+  id         String   @id @default(cuid())
+  propertyId String?
+  type       String
+  title      String
+  body       String
+  entityType String?
+  entityId   String?
+  data       Json?
+  createdAt  DateTime @default(now())
+  expiresAt  DateTime?
+
+  recipients NotificationRecipient[]
+
+  @@index([propertyId, createdAt])
+  @@index([type, createdAt])
+  @@index([entityType, entityId])
+}
+
+model NotificationRecipient {
+  id             String    @id @default(cuid())
+  notificationId String
+  userId         String
+  readAt         DateTime?
+  dismissedAt    DateTime?
+  createdAt      DateTime  @default(now())
+
+  notification Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([notificationId, userId])
+  @@index([userId, createdAt])
+  @@index([userId, readAt, createdAt])
 }

@@ -15,6 +15,8 @@ const envSchema = z.object({
     S3_SECRET_KEY: z.string().optional(),
     S3_BUCKET_NAME: z.string().optional(),
     S3_PUBLIC_URL: z.string().optional(),
+
+    FIREBASE_SERVICE_ACCOUNT_JSON: z.string().min(1),
 });
 
 export const env = envSchema.parse(process.env);

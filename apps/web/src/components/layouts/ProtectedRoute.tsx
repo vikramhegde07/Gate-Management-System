@@ -1,6 +1,7 @@
 import { Navigate, Outlet } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { LoadingOverlay } from "@/components/ui/LoadingOverlay"; // Adjust path as needed
+import { usePushNotifications } from "@/lib/hooks/usePushNotifications";
 
 /**
  * ProtectedRoute: Higher-order component that prevents 
@@ -8,6 +9,8 @@ import { LoadingOverlay } from "@/components/ui/LoadingOverlay"; // Adjust path 
  */
 const ProtectedRoute = () => {
     const { user, loading } = useAuth();
+
+    usePushNotifications(!loading && !!user);
 
     // While checking session, show a clean, branded loading state
     if (loading) {

@@ -10,7 +10,7 @@ const app = express();
 app.use(express.json());
 app.use(cookieParser())
 app.use(cors({
-    origin: ["http://localhost:5173", "https://gate.nodenomad.in", "https://gate-management-system-beryl.vercel.app"],
+    origin: ["http://localhost:5173", "https://gate-management-system-beryl.vercel.app"],
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization']

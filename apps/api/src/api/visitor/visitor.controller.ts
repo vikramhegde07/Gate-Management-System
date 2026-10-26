@@ -2,66 +2,163 @@ import type { Request, Response } from "express";
 import { asyncHandler } from "../../utils/asyncHandler";
 import prisma from "../../lib/prisma";
 import { PropertyRole, type Prisma } from "../../generated/prisma/client";
+import {
+    createNotification,
+    createNotificationRecipients,
+} from "../../utils/notification";
+import { sendPushNotification } from "../../utils/pushNotification";
 
 export const createVisitorEntry =
     asyncHandler(async (req: Request, res: Response) => {
-
         const {
             visitorName,
             visitorPhone,
-
             purpose,
-
             gateId,
-
             hostUserId,
-
             vehicleNumber,
             vehicleType,
-
             remarks,
         } = req.body;
 
+        const propertyId = req.propertyAccess!.propertyId;
+
         const isSecurity =
-            req.propertyAccess?.role ===
-            "SECURITY";
+            req.propertyAccess?.role === "SECURITY";
 
-        const visitor =
-            await prisma.visitorEntry.create({
-                data: {
-                    propertyId:
-                        req.propertyAccess!
-                            .propertyId,
+        // 1. Create the visitor entry
+        const visitor = await prisma.visitorEntry.create({
+            data: {
+                propertyId,
+                gateId,
+                visitorName,
+                visitorPhone,
+                purpose,
+                hostUserId,
+                vehicleNumber,
+                vehicleType,
+                remarks,
+                createdById: req.user!.id,
 
-                    gateId,
+                status: isSecurity
+                    ? "CHECKED_IN"
+                    : "PENDING",
 
-                    visitorName,
-                    visitorPhone,
+                checkInTime: isSecurity
+                    ? new Date()
+                    : null,
+            },
+        });
 
-                    purpose,
+        /*
+        ========================================
+        NOTIFY ON-DUTY GUARDS
+        ========================================
 
-                    hostUserId,
+        Only pending visitor entries require approval.
+        Guard-created entries are already checked in.
+        */
 
-                    vehicleNumber,
-                    vehicleType,
+        console.log("checking for security role");
 
-                    remarks,
 
-                    createdById:
-                        req.user!.id,
+        if (!isSecurity) {
+            try {
+                console.log("inside the notification creation");
 
-                    status:
-                        isSecurity
-                            ? "CHECKED_IN"
-                            : "PENDING",
+                // 2. Find guards currently on duty at this gate
+                const activeDuties = await prisma.gateDuty.findMany({
+                    where: {
+                        propertyId,
+                        gateId,
+                        endedAt: null,
+                    },
+                    select: {
+                        guardUserId: true,
+                    },
+                    distinct: ["guardUserId"],
+                });
 
-                    checkInTime:
-                        isSecurity
-                            ? new Date()
-                            : null,
-                },
-            });
+                const guardUserIds = activeDuties.map(
+                    (duty) => duty.guardUserId
+                );
 
+                if (guardUserIds.length > 0) {
+                    // 3. Confirm these users still have active
+                    // SECURITY access to this property
+                    const activeGuards =
+                        await prisma.propertyAccess.findMany({
+                            where: {
+                                propertyId,
+                                userId: {
+                                    in: guardUserIds,
+                                },
+                                role: "SECURITY",
+                                isActive: true,
+                            },
+                            select: {
+                                userId: true,
+                            },
+                        });
+
+                    const recipientUserIds = [
+                        ...new Set(
+                            activeGuards.map(
+                                (guard) => guard.userId
+                            )
+                        ),
+                    ];
+
+                    // 4. Create notification content and recipients
+                    if (recipientUserIds.length > 0) {
+                        const notificationId =
+                            await createNotification({
+                                propertyId,
+                                type: "VISITOR_APPROVAL_REQUIRED",
+                                title: "Visitor approval required",
+                                body: "A visitor is waiting for approval.",
+                                entityType: "VISITOR_ENTRY",
+                                entityId: visitor.id,
+                                data: {
+                                    gateId,
+                                },
+                            });
+
+                        await createNotificationRecipients({
+                            notificationId,
+                            userIds: recipientUserIds,
+                        });
+
+                        // After creating the notification and its recipients:
+                        try {
+                            await sendPushNotification({
+                                userIds: recipientUserIds,
+                                title: "Visitor approval required",
+                                body: "A visitor is waiting for approval.",
+                                data: {
+                                    type: "VISITOR_APPROVAL_REQUIRED",
+                                    entityType: "VISITOR_ENTRY",
+                                    entityId: visitor.id,
+                                    propertyId,
+                                    gateId,
+                                },
+                            });
+                        } catch (error) {
+                            console.error("Push notification delivery failed:", error);
+                        }
+                    }
+                }
+            } catch (error) {
+                // Notification failure should not undo an already
+                // created visitor entry.
+                console.error(
+                    "Failed to create visitor approval notification:",
+                    error
+                );
+            }
+        }
+
+        // 5. Return the created visitor entry
         return res.status(201).json({
             success: true,
             data: visitor,

@@ -8,7 +8,8 @@ import {
     Users,
     ShieldCheck,
     ArrowLeft,
-    UserCheck
+    UserCheck,
+    Bell
 } from "lucide-react";
 
 import { useAuth } from "@/context/AuthContext";
@@ -33,6 +34,12 @@ const navItems = [
         label: "Visitors Logs",
         icon: Users,
         href: "/visitors",
+        allowedRoles: ["OWNER", "COMMITTEE", "RESIDENT", "SECURITY", "STAFF"],
+    },
+    {
+        label: "Notifications",
+        icon: Bell,
+        href: "/notifications",
         allowedRoles: ["OWNER", "COMMITTEE", "RESIDENT", "SECURITY", "STAFF"],
     },
     {

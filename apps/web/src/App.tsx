@@ -12,6 +12,7 @@ import PublicVisitorPage from './pages/Public/PublicVisitorPage'
 import Properties from './pages/Properties'
 import PropertyGuard from './components/layouts/PropertyGuard'
 import Profile from './pages/Profile'
+import Notifications from './pages/Notifications'
 
 function App() {
 
@@ -41,6 +42,7 @@ function App() {
 
               <Route path="/profile" element={<Profile />} />
 
+              <Route path="/notifications" element={<Notifications />} />
             </Route>
 
           </Route>

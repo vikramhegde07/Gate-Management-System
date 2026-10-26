@@ -34,7 +34,7 @@ server.listen(PORT, "0.0.0.0", () => {
 server.on("error", (err: any) => {
     if ("code" in err && err.code === "EADDRINUSE") {
         console.error(
-            `Port ${process.env.PORT} is already in use.`
+            `Port ${PORT} is already in use.`
         );
     } else {
         console.error("Failed to start server:", err);

@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { requestPushPermission } from "@/lib/pushNotifications";
 
 const PAGE_SIZE = 20;
 
@@ -197,6 +198,7 @@ export default function Notifications() {
 
     useEffect(() => {
         void fetchNotifications();
+        requestPushPermission();
     }, [fetchNotifications]);
 
     const markAsRead = async (
@@ -458,8 +460,8 @@ export default function Notifications() {
                             <article
                                 key={recipient.id}
                                 className={`space-y-3 rounded-lg border p-4 ${!recipient.readAt
-                                        ? "bg-muted/30"
-                                        : ""
+                                    ? "bg-muted/30"
+                                    : ""
                                     }`}
                             >
                                 <div className="flex flex-wrap items-start justify-between gap-3">

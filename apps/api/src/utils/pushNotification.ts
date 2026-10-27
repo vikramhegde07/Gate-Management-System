@@ -45,7 +45,7 @@ export const sendPushNotification = async (
         try {
             const result =
                 await firebaseMessaging.sendEachForMulticast({
-                    tokens: batch.map((device) => device.token),
+                    fids: batch.map((device) => device.token),
 
                     notification: {
                         title: input.title,

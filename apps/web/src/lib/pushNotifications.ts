@@ -1,9 +1,8 @@
 
-import { getToken } from "firebase/messaging";
+import { getMessaging, onRegistered, register } from "firebase/messaging";
 import { apiPrivate } from "@/lib/api";
 import {
     firebaseVapidKey,
-    getFirebaseMessaging,
 } from "@/lib/firebase";
 
 export async function registerCurrentDevice(): Promise<void> {
@@ -15,7 +14,7 @@ export async function registerCurrentDevice(): Promise<void> {
         throw new Error("Firebase VAPID key is missing.");
     }
 
-    const messaging = await getFirebaseMessaging();
+    const messaging = getMessaging();
 
     if (!messaging) {
         throw new Error("Firebase Messaging is unsupported.");
@@ -25,20 +24,20 @@ export async function registerCurrentDevice(): Promise<void> {
         "/firebase-messaging-sw.js"
     );
 
-    const token = await getToken(messaging, {
+    onRegistered(messaging, async (installationId) => {
+
+        await apiPrivate.post("/fcm-tokens", {
+            token: installationId,
+            platform: "WEB",
+            deviceName: navigator.userAgent,
+        });
+    });
+
+    register(messaging, {
         vapidKey: firebaseVapidKey,
         serviceWorkerRegistration: registration,
-    });
+    })
 
-    if (!token) {
-        throw new Error("Could not obtain an FCM token.");
-    }
-
-    await apiPrivate.post("/fcm-tokens", {
-        token,
-        platform: "WEB",
-        deviceName: navigator.userAgent,
-    });
 }
 
 export async function requestPushPermission(): Promise<void> {
